@@ -262,34 +262,46 @@ const {
   OTLPTraceExporter,
 } = require('@opentelemetry/exporter-trace-otlp-http');
 
-const sdk = new opentelemetry.NodeSDK({
-  traceExporter: new OTLPTraceExporter(),
-  instrumentations: [getNodeAutoInstrumentations()],
-});
+const initAndStartSDK = async () => {
+  const sdk = new opentelemetry.NodeSDK({
+    traceExporter: new OTLPTraceExporter(),
+    instrumentations: [getNodeAutoInstrumentations()],
+  });
 
-sdk.start().then(() => {
-  const express = require('express');
-  const http = require('http');
-  const app = express();
-  app.get('/', (_, response) => {
-    const options = {
-      hostname: 'nginx',
-      port: 80,
-      path: '/',
-      method: 'GET',
-    };
-    const req = http.request(options, (res) => {
-      console.log(`statusCode: ${res.statusCode}`);
-      res.on('data', (d) => {
-        response.send('Hello World');
+  await sdk.start();
+  return sdk;
+};
+
+const main = async () => {
+  try {
+    const sdk = await initAndStartSDK();
+    const express = require('express');
+    const http = require('http');
+    const app = express();
+    app.get('/', (_, response) => {
+      const options = {
+        hostname: 'nginx',
+        port: 80,
+        path: '/',
+        method: 'GET',
+      };
+      const req = http.request(options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`);
+        res.on('data', (d) => {
+          response.send('Hello World');
+        });
       });
+      req.end();
     });
-    req.end();
-  });
-  app.listen(parseInt(8000, 10), () => {
-    console.log('Listening for requests');
-  });
-});
+    app.listen(8000, () => {
+      console.log('Listening for requests');
+    });
+  } catch (error) {
+    console.error('Error occurred:', error);
+  }
+};
+
+main();
 ```
 
 To finalize the frontend service, create an empty `Dockerfile` with the
